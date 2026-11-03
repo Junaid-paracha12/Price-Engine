@@ -1,9 +1,7 @@
 {
-  "rewrites": [{ "source": "/(.*)", "destination": "/api/index" }],
   "functions": {
-    "api/index.py": {
+    "app.py": {
       "maxDuration": 30,
-      "memory": 1024,
       "includeFiles": "{backend,frontend,models,data}/**"
     }
   }
