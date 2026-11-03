@@ -7,25 +7,32 @@ Backend: FastAPI. Frontend: one HTML file served by the backend. Model + optimis
 ```bash
 pip install -r requirements-dev.txt
 ./run.sh                       # http://localhost:8000   ·  API docs: http://localhost:8000/docs
-pytest -q tests                # 7 API tests
+pytest -q tests                # 8 API tests
 ```
 
+## Deploy to Vercel
+Import the repository with its root directory set to the repository root. Vercel detects `app.py` as the FastAPI
+entry point, installs `requirements.txt`, and includes the model, data, backend, and frontend from `vercel.json`.
+No custom build command or always-running server is needed. Push commits to the connected Git branch to deploy.
+
+The Python version and scikit-learn version are pinned to match the bundled model; keep them in sync if you retrain it.
+
 ## ⚠️ The bundled model is a DEMO
-Your dataset (`sales_data.csv`) and the `.joblib` from the notebook were not available, so `models/pricing_pipeline.joblib`
-was trained on **synthetic data with the same schema** (the UI shows a "DEMO MODEL" badge). To use your real data:
+`models/pricing_pipeline.joblib` is trained on **synthetic data with the same schema** (the UI shows a "DEMO MODEL"
+badge). To use your real data:
 ```bash
 cp /path/to/sales_data.csv data/sales_data.csv
 python backend/train.py --data data/sales_data.csv          # imputer=iterative as in the notebook; refits & overwrites the model
 ./run.sh
 ```
-Or drop the notebook's own `pricing_pipeline.joblib` into `models/` (keep `backend/pricing_pipeline_components.py`, which is
-copied verbatim from notebook §12.4) and put the CSV in `data/`. The server prefers `data/sales_data.csv` over the demo file.
+The trainer uses scikit-learn's `HistGradientBoostingRegressor` to avoid LightGBM's separate system `libgomp.so.1`
+runtime dependency. Keep the CSV in `data/`; the server prefers `data/sales_data.csv` over the demo file.
 
 ## How it maps to the notebook
 | Notebook | Here |
 |---|---|
 | §12.4 pipeline (`PricingCleaner → PricingFeatureBuilder → HistoryAwareRegressor`) | `backend/pricing_pipeline_components.py` (verbatim) |
-| §9 final LightGBM, 6 features, refined params | `backend/train.py` |
+| §9 demand model, 6 features | `backend/train.py` |
 | §12.2 `recommend_prices_constrained` | `backend/notebook_engine.py` (verbatim; `features` made a parameter) |
 | §12.4d `pipeline_recommend` | `backend/engine.py` + `main.py` |
 

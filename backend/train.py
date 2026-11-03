@@ -1,18 +1,18 @@
-"""Train / retrain the pricing pipeline exactly as in the notebook's final configuration.
+"""Train / retrain the pricing pipeline for local and serverless deployment.
 
     python train.py --data ../data/sales_data.csv      # your real dataset
     python train.py --demo                              # synthetic data (demo only)
 
-Final model from the notebook: LightGBM on 6 features (Price, Competitor_Pricing, Discount,
-Category, Store_ID, Product_ID), raw target, wrapped in the end-to-end pricing pipeline.
+The estimator uses scikit-learn instead of LightGBM, whose native library may require a
+system OpenMP library that is unavailable in serverless runtimes.
 """
 import argparse, sys
 from pathlib import Path
 import joblib
 import numpy as np
 import pandas as pd
-from lightgbm import LGBMRegressor
 from sklearn.compose import ColumnTransformer, TransformedTargetRegressor
+from sklearn.ensemble import HistGradientBoostingRegressor
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
 
@@ -24,15 +24,14 @@ from data_gen import make_demo_data  # noqa: E402
 NUM_FEATS = ["Price", "Competitor_Pricing", "Discount"]
 CAT_FEATS = ["Category", "Store_ID", "Product_ID"]
 FEATURES = NUM_FEATS + CAT_FEATS
-# refined hyper-parameters reported in notebook section 9
-BEST_PARAMS = dict(n_estimators=800, learning_rate=0.0835, num_leaves=105, min_child_samples=7,
-                   subsample=0.9453, colsample_bytree=0.6651, reg_lambda=0.0426, reg_alpha=0.0027)
+ESTIMATOR_PARAMS = dict(max_iter=300, learning_rate=0.08, max_leaf_nodes=31, min_samples_leaf=7,
+                        l2_regularization=0.04)
 
 
-def make_estimator(params=BEST_PARAMS, seed=42):
+def make_estimator(params=ESTIMATOR_PARAMS, seed=42):
     prep = ColumnTransformer([("num", StandardScaler(), NUM_FEATS),
                               ("cat", OneHotEncoder(handle_unknown="ignore", sparse_output=False), CAT_FEATS)])
-    reg = LGBMRegressor(subsample_freq=1, n_jobs=-1, random_state=seed, verbose=-1, **params)
+    reg = HistGradientBoostingRegressor(random_state=seed, **params)
     return TransformedTargetRegressor(regressor=Pipeline([("prep", prep), ("model", reg)]), transformer=None)
 
 
@@ -78,7 +77,8 @@ def main():
     # production fit on ALL history
     pipe = ppc.make_pricing_pipeline(make_estimator(), imputer=a.imputer).fit(raw, raw["Demand"])
     Path(a.out).parent.mkdir(exist_ok=True)
-    joblib.dump(dict(pipeline=pipe, model_name="LightGBM", trained_through=str(raw["Date"].max().date()),
+    joblib.dump(dict(pipeline=pipe, model_name="Histogram Gradient Boosting",
+                     trained_through=str(raw["Date"].max().date()),
                      holdout_metrics=hold, y_range=y_range, features=FEATURES, source=source,
                      required_input_columns=ppc.REQUIRED_INPUT, imputer=a.imputer), a.out)
     print("saved", a.out, "| data source:", source)
