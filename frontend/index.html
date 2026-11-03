@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Adaptive Pricing Engine</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%230f766e'/%3E%3Cpath d='M7 21l6-6 4 4 8-9' stroke='white' stroke-width='3' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--ink:#14181f;--mut:#5d6675;--line:#e3e6eb;--acc:#0f766e;--acc-ink:#fff;--up:#0f766e;--down:#b4232c;--warn:#a15c07;--warnbg:#fff4de;--c1:#0f766e;--c2:#6b7a90;--c3:#c2410c;--shadow:0 1px 2px rgba(20,24,31,.05),0 4px 16px rgba(20,24,31,.04)}
+@media(prefers-color-scheme:dark){:root:not([data-theme=light]){--bg:#0e1116;--panel:#171b22;--ink:#e8ebf0;--mut:#93a0b2;--line:#262c36;--acc:#2dd4bf;--acc-ink:#04201c;--up:#2dd4bf;--down:#ff7b84;--warn:#f5b955;--warnbg:#2a2113;--c1:#2dd4bf;--c2:#8794a8;--c3:#fb923c;--shadow:none}}
+:root[data-theme=dark]{--bg:#0e1116;--panel:#171b22;--ink:#e8ebf0;--mut:#93a0b2;--line:#262c36;--acc:#2dd4bf;--acc-ink:#04201c;--up:#2dd4bf;--down:#ff7b84;--warn:#f5b955;--warnbg:#2a2113;--c1:#2dd4bf;--c2:#8794a8;--c3:#fb923c;--shadow:none}
+*{box-sizing:border-box}
+html{color-scheme:light dark}
+body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased}
+header{display:flex;flex-wrap:wrap;gap:12px 20px;align-items:center;justify-content:space-between;padding:14px 24px;background:var(--panel);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5}
+.brand{display:flex;align-items:center;gap:10px;font-weight:700;font-size:16px;letter-spacing:-.01em}
+.logo{width:30px;height:30px;border-radius:8px;background:var(--acc);display:grid;place-items:center}
+.logo svg{width:18px;height:18px}
+.hmeta{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.chip{font-size:12px;padding:3px 10px;border-radius:99px;border:1px solid var(--line);color:var(--mut);background:var(--bg);white-space:nowrap}
+.chip.demo{color:var(--warn);background:var(--warnbg);border-color:transparent;font-weight:600}
+button{font:inherit;cursor:pointer}
+.theme{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:4px 10px}
+nav{display:flex;gap:4px;padding:0 24px;background:var(--panel);border-bottom:1px solid var(--line)}
+nav button{background:none;border:0;padding:12px 14px;color:var(--mut);font-weight:600;border-bottom:2px solid transparent}
+nav button[aria-selected=true]{color:var(--ink);border-color:var(--acc)}
+main{display:grid;grid-template-columns:330px 1fr;gap:20px;padding:20px 24px;max-width:1500px;margin:auto}
+@media(max-width:960px){main{grid-template-columns:1fr;padding:16px}header,nav{padding-left:16px;padding-right:16px}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow)}
+.side{padding:18px;align-self:start;position:sticky;top:112px}
+@media(max-width:960px){.side{position:static}}
+h2{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mut);margin:18px 0 8px;font-weight:700}
+h2:first-child{margin-top:0}
+label{display:block;font-size:12px;color:var(--mut);margin:8px 0 3px}
+input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink);font:inherit}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--acc);outline-offset:1px}
+.row2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.seg{display:grid;grid-template-columns:1fr 1fr;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{border:0;background:var(--bg);color:var(--mut);padding:7px;font-size:12.5px;font-weight:600}
+.seg button[aria-pressed=true]{background:var(--acc);color:var(--acc-ink)}
+.primary{width:100%;margin-top:16px;padding:11px;border:0;border-radius:9px;background:var(--acc);color:var(--acc-ink);font-weight:700;font-size:14px}
+.primary:disabled{opacity:.6;cursor:wait}
+.hint{font-size:11.5px;color:var(--mut);margin-top:4px}
+.stack{display:grid;gap:16px;min-width:0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px}
+.kpi{padding:14px 16px}
+.kpi .l{font-size:12px;color:var(--mut)}
+.kpi .v{font-size:26px;font-weight:700;letter-spacing:-.02em;margin-top:2px;font-variant-numeric:tabular-nums}
+.kpi .s{font-size:12.5px;margin-top:2px;color:var(--mut)}
+.up{color:var(--up)}.down{color:var(--down)}
+.badge{display:inline-block;padding:2px 9px;border-radius:99px;font-size:11.5px;font-weight:700}
+.b-OK{background:color-mix(in srgb,var(--up) 15%,transparent);color:var(--up)}
+.b-KEEP_CURRENT_SMALL_GAIN{background:color-mix(in srgb,var(--c2) 18%,transparent);color:var(--mut)}
+.b-NO_FEASIBLE_PRICE{background:color-mix(in srgb,var(--down) 15%,transparent);color:var(--down)}
+.panel{padding:16px 18px}
+.panel h3{margin:0 0 2px;font-size:14px}
+.panel .sub{color:var(--mut);font-size:12.5px;margin-bottom:8px}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+@media(max-width:1200px){.charts{grid-template-columns:1fr}}
+svg.chart{width:100%;height:auto;display:block;overflow:visible}
+.ax{stroke:var(--line)}.tk{fill:var(--mut);font-size:10.5px}
+.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--mut);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.notes{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:10px 14px;font-size:12.5px}
+.notes ul{margin:4px 0 0;padding-left:18px}
+.tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);padding:6px 9px;border-radius:7px;font-size:12px;z-index:20;display:none;white-space:nowrap}
+.empty{padding:60px 20px;text-align:center;color:var(--mut)}
+.err{background:color-mix(in srgb,var(--down) 12%,transparent);color:var(--down);padding:10px 14px;border-radius:10px;font-size:13px}
+.tablewrap{overflow:auto;max-height:520px;border:1px solid var(--line);border-radius:10px}
+table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}
+th,td{padding:7px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+th{position:sticky;top:0;background:var(--panel);font-size:12px;color:var(--mut);cursor:pointer;user-select:none}
+th:first-child,td:first-child,th:nth-child(2),td:nth-child(2),th:nth-child(3),td:nth-child(3){text-align:left}
+tbody tr:hover{background:var(--bg)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.toolbar input{max-width:240px}
+.ghost{border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:8px;padding:7px 12px;font-weight:600}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="brand"><div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-9"/></svg></div>Adaptive Pricing Engine</div>
+  <div class="hmeta" id="hmeta"><span class="chip">Loading model…</span></div>
+</header>
+<nav role="tablist">
+  <button role="tab" aria-selected="true" data-tab="single">Single product</button>
+  <button role="tab" aria-selected="false" data-tab="batch">Catalog (all products)</button>
+  <button class="theme" id="theme" style="margin:auto 0 auto auto" aria-label="Toggle theme">Theme</button>
+</nav>
+<main>
+  <aside class="card side">
+    <div id="singleForm">
+      <h2>Product</h2>
+      <div style="display:grid;grid-template-columns:.8fr 1.4fr;gap:10px">
+        <div><label for="store">Store</label><select id="store"></select></div>
+        <div><label for="product">Product</label><select id="product"></select></div>
+      </div>
+      <h2>Live signals <span style="text-transform:none;letter-spacing:0;font-weight:400">(edit to simulate)</span></h2>
+      <div class="row2">
+        <div><label for="price">Current price</label><input id="price" type="number" step="0.01" min="0.01"></div>
+        <div><label for="comp">Competitor price</label><input id="comp" type="number" step="0.01" min="0.01"></div>
+        <div><label for="disc">Discount %</label><input id="disc" type="number" step="1" min="0" max="99"></div>
+        <div><label for="inv">Inventory</label><input id="inv" type="number" step="1" min="0"></div>
+      </div>
+      <div class="row2">
+        <div><label for="promo">Promotion</label><select id="promo"><option value="0">No</option><option value="1">Yes</option></select></div>
+        <div><label for="weather">Weather</label><select id="weather"></select></div>
+      </div>
+    </div>
+    <div id="batchForm" hidden>
+      <h2>Scope</h2>
+      <div class="row2">
+        <div><label for="bstore">Store</label><select id="bstore"></select></div>
+        <div><label for="bcat">Category</label><select id="bcat"></select></div>
+      </div>
+    </div>
+    <h2>Unit cost</h2>
+    <div class="seg" id="costMode"><button data-m="actual" aria-pressed="false">Actual cost</button><button data-m="share" aria-pressed="true">Illustrative</button></div>
+    <div id="costActual" hidden><label for="cost">Unit cost</label><input id="cost" type="number" step="0.01" min="0.01" placeholder="e.g. 42.50"><div class="hint" id="costHint">Batch mode: one cost applies to every product — use the API for a per-product cost map.</div></div>
+    <div id="costShare"><label for="share">Cost as % of current price</label><input id="share" type="number" value="60" min="1" max="99"><div class="hint">Demo only — the dataset has no cost column.</div></div>
+    <h2>Business rules</h2>
+    <div class="row2">
+      <div><label for="margin">Min margin %</label><input id="margin" type="number" value="30" min="0" max="99"></div>
+      <div><label for="prem">Max premium vs comp. %</label><input id="prem" type="number" value="10" min="0" max="200"></div>
+      <div><label for="maxch">Max change / update %</label><input id="maxch" type="number" value="15" min="0" max="50"></div>
+      <div><label for="escale">Elasticity scale</label><input id="escale" type="number" value="1" step="0.25" min="0.25" max="5"></div>
+    </div>
+    <button class="primary" id="run">Recommend price</button>
+  </aside>
+
+  <section class="stack" id="single">
+    <div class="empty card" id="sEmpty">Pick a product and press <b>Recommend price</b>.</div>
+    <div id="sOut" class="stack" hidden></div>
+  </section>
+  <section class="stack" id="batch" hidden>
+    <div class="empty card" id="bEmpty">Set the scope and press <b>Recommend price</b> to price the whole catalog.</div>
+    <div id="bOut" class="stack" hidden></div>
+  </section>
+</main>
+<div class="tip" id="tip"></div>
+
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const money=n=>n==null?'–':'$'+Number(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+const num=(n,d=0)=>n==null?'–':Number(n).toLocaleString(undefined,{maximumFractionDigits:d});
+const pct=(n,d=1)=>n==null?'–':(n>0?'+':'')+Number(n).toFixed(d)+'%';
+const cls=n=>n>0.0001?'up':n<-0.0001?'down':'';
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+let META, tab='single', costMode='share', lastBatch=null;
+
+async function api(path,body){
+  const r=await fetch('/api/'+path,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:undefined);
+  const j=await r.json().catch(()=>({}));
+  if(!r.ok){const d=j.detail; throw new Error(typeof d==='string'?d:Array.isArray(d)?d.map(x=>(x.loc||[]).slice(1).join('.')+': '+x.msg).join('; '):'Request failed ('+r.status+')')}
+  return j;
+}
+function fill(sel,items,val){sel.innerHTML=items.map(i=>`<option value="${esc(i.v??i)}">${esc(i.t??i)}</option>`).join(''); if(val!=null)sel.value=val}
+
+/* ---------- theme ---------- */
+$('#theme').onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==='dark':matchMedia('(prefers-color-scheme:dark)').matches;r.dataset.theme=dark?'light':'dark'};
+
+/* ---------- init ---------- */
+async function init(){
+  META=await api('meta'); const m=META.model, h=m.holdout;
+  $('#hmeta').innerHTML=(m.source==='demo'?'<span class="chip demo">DEMO MODEL · synthetic data</span>':'')+
+   `<span class="chip">${esc(m.name)}</span><span class="chip">Hold-out R² ${h.R2.toFixed(3)}</span><span class="chip">WAPE ${(h.WAPE*100).toFixed(1)}%</span><span class="chip">Trained through ${m.trained_through}</span><span class="chip">Pricing for ${META.decision_date}</span>`;
+  fill($('#store'),META.stores); fill($('#bstore'),[{v:'',t:'All stores'},...META.stores]);
+  fill($('#bcat'),[{v:'',t:'All categories'},...META.categories]); fill($('#weather'),META.weather);
+  fill($('#product'),META.products.map(p=>({v:p.id,t:`${p.id} · ${p.category}`})));
+  $('#store').onchange=$('#product').onchange=loadSeries; await loadSeries();
+}
+async function loadSeries(){
+  try{const s=await api(`series?store_id=${$('#store').value}&product_id=${$('#product').value}`);
+    $('#price').value=s.price; $('#comp').value=s.competitor_price; $('#disc').value=s.discount; $('#inv').value=s.inventory;
+    $('#promo').value=s.promotion; $('#weather').value=s.weather;}catch(e){showErr('single',e.message)}
+}
+
+/* ---------- controls ---------- */
+$$('nav [data-tab]').forEach(b=>b.onclick=()=>{tab=b.dataset.tab;$$('nav [data-tab]').forEach(x=>x.setAttribute('aria-selected',x===b));
+  $('#single').hidden=tab!=='single';$('#batch').hidden=tab!=='batch';$('#singleForm').hidden=tab!=='single';$('#batchForm').hidden=tab!=='batch';
+  $('#costHint').hidden=tab!=='batch';});
+$$('#costMode button').forEach(b=>b.onclick=()=>{costMode=b.dataset.m;$$('#costMode button').forEach(x=>x.setAttribute('aria-pressed',x===b));
+  $('#costActual').hidden=costMode!=='actual';$('#costShare').hidden=costMode!=='share'});
+$('#costHint').hidden=true;
+function rules(){
+  const r={target_margin:$('#margin').value/100,max_competitor_premium:$('#prem').value/100,max_change:$('#maxch').value/100,elasticity_scale:+$('#escale').value};
+  if(costMode==='actual')r.unit_cost=+$('#cost').value; else r.cost_share=$('#share').value/100;
+  return r;
+}
+function showErr(where,msg){const id=where==='single'?'#sOut':'#bOut',e=where==='single'?'#sEmpty':'#bEmpty';$(e).hidden=true;$(id).hidden=false;$(id).innerHTML=`<div class="err" role="alert">${esc(msg)}</div>`}
+$('#run').onclick=async()=>{
+  const btn=$('#run'); btn.disabled=true; const t=btn.textContent; btn.textContent='Calculating…';
+  try{
+    if(costMode==='actual'&&!(+$('#cost').value>0))throw new Error('Enter a unit cost greater than 0, or switch to Illustrative.');
+    if(tab==='single'){
+      const body={...rules(),store_id:$('#store').value,product_id:$('#product').value,current_price:+$('#price').value||null,competitor_price:+$('#comp').value||null,
+        discount:$('#disc').value===''?null:+$('#disc').value,inventory:$('#inv').value===''?null:+$('#inv').value,promotion:+$('#promo').value,weather:$('#weather').value};
+      renderSingle(await api('recommend',body));
+    }else{
+      const body={...rules(),store_id:$('#bstore').value||null,category:$('#bcat').value||null};
+      if(costMode==='actual'){body.unit_cost=body.unit_cost}
+      lastBatch=await api('batch',body); renderBatch();
+    }
+  }catch(e){showErr(tab,e.message)}finally{btn.disabled=false;btn.textContent=t}
+};
+
+/* ---------- tiny SVG chart helpers ---------- */
+const tip=$('#tip');
+function showTip(e,html){tip.innerHTML=html;tip.style.display='block';tip.style.left=Math.min(e.clientX+14,innerWidth-200)+'px';tip.style.top=(e.clientY+14)+'px'}
+function hideTip(){tip.style.display='none'}
+function scale(d0,d1,r0,r1){return v=>r0+(v-d0)/((d1-d0)||1)*(r1-r0)}
+function nice(min,max,n=4){const span=(max-min)||1,step=Math.pow(10,Math.floor(Math.log10(span/n))),e=span/n/step,s=(e>=5?5:e>=2?2:1)*step;
+  const lo=Math.floor(min/s)*s,hi=Math.ceil(max/s)*s,t=[];for(let v=lo;v<=hi+1e-9;v+=s)t.push(+v.toFixed(8));return t}
+const W=560,H=250,M={l:52,r:16,t:20,b:30};
+
+function curveChart(curve,rec){
+  const xs=curve.map(c=>c.price),ys=curve.map(c=>c.profit);
+  const xt=nice(Math.min(...xs),Math.max(...xs),5),yt=nice(Math.min(...ys,0),Math.max(...ys),4);
+  const x=scale(xt[0],xt.at(-1),M.l,W-M.r),y=scale(yt[0],yt.at(-1),H-M.b,M.t);
+  const line=curve.map((c,i)=>(i?'L':'M')+x(c.price).toFixed(1)+' '+y(c.profit).toFixed(1)).join('');
+  let g=yt.map(v=>`<line class="ax" x1="${M.l}" x2="${W-M.r}" y1="${y(v)}" y2="${y(v)}"/><text class="tk" x="${M.l-8}" y="${y(v)+3}" text-anchor="end">${num(v)}</text>`).join('');
+  g+=xt.map(v=>`<text class="tk" x="${x(v)}" y="${H-10}" text-anchor="middle">${num(v,0)}</text>`).join('');
+  const dots=curve.map((c,i)=>`<circle cx="${x(c.price)}" cy="${y(c.profit)}" r="${c.feasible?4.5:3.5}" fill="${c.feasible?'var(--c1)':'var(--panel)'}" stroke="${c.feasible?'var(--panel)':'var(--c2)'}" stroke-width="1.5" data-i="${i}"/>`).join('');
+  const cur=x(rec.Current_Price),chosen=x(rec.Recommended_Price);
+  const marks=`<line x1="${cur}" x2="${cur}" y1="${M.t}" y2="${H-M.b}" stroke="var(--c2)" stroke-dasharray="4 4"/><text class="tk" x="${cur}" y="${M.t+2}" text-anchor="middle">current</text>`+
+    (rec.Decision_Status==='NO_FEASIBLE_PRICE'?'':`<line x1="${chosen}" x2="${chosen}" y1="${M.t+12}" y2="${H-M.b}" stroke="var(--c3)" stroke-width="2"/><text class="tk" style="fill:var(--c3);font-weight:700" x="${chosen}" y="${M.t+10}" text-anchor="middle">recommended</text>`);
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" id="curveSvg" role="img" aria-label="Expected profit at each candidate price">${g}${marks}<path d="${line}" fill="none" stroke="var(--c1)" stroke-width="2" opacity=".55"/>${dots}</svg>`;
+}
+function histChart(h){
+  const n=h.date.length,all=[...h.price,...h.competitor];
+  const dmax=Math.max(...h.demand)*1.1,pmin=Math.min(...all)*.95,pmax=Math.max(...all)*1.05;
+  const x=scale(0,n-1,M.l,W-M.r-34),yd=scale(0,dmax,H-M.b,M.t),yp=scale(pmin,pmax,H-M.b,M.t);
+  const P=(arr,f)=>arr.map((v,i)=>(i?'L':'M')+x(i).toFixed(1)+' '+f(v).toFixed(1)).join('');
+  const dt=nice(0,dmax,4),pt=nice(pmin,pmax,4).filter(v=>v>=pmin&&v<=pmax);
+  let g=dt.map(v=>`<line class="ax" x1="${M.l}" x2="${W-M.r-34}" y1="${yd(v)}" y2="${yd(v)}"/><text class="tk" x="${M.l-8}" y="${yd(v)+3}" text-anchor="end">${num(v)}</text>`).join('');
+  g+=pt.map(v=>`<text class="tk" x="${W-M.r-28}" y="${yp(v)+3}">$${num(v)}</text>`).join('');
+  g+=[0,Math.floor(n/2),n-1].map(i=>`<text class="tk" x="${x(i)}" y="${H-10}" text-anchor="${i===0?'start':i===n-1?'end':'middle'}">${h.date[i].slice(5)}</text>`).join('');
+  return `<svg class="chart" viewBox="0 0 ${W} ${H}" id="histSvg" role="img" aria-label="Last 30 days of demand, our price and competitor price">${g}
+   <path d="${P(h.demand,yd)}" fill="none" stroke="var(--c1)" stroke-width="2"/>
+   <path d="${P(h.price,yp)}" fill="none" stroke="var(--c3)" stroke-width="1.8"/>
+   <path d="${P(h.competitor,yp)}" fill="none" stroke="var(--c2)" stroke-width="1.8" stroke-dasharray="5 3"/>
+   <rect x="${M.l}" y="${M.t}" width="${W-M.l-M.r-34}" height="${H-M.t-M.b}" fill="transparent" id="histHit"/></svg>`;
+}
+
+/* ---------- single product ---------- */
+function renderSingle(d){
+  const r=d.recommendation, none=r.Decision_Status==='NO_FEASIBLE_PRICE', keep=r.Decision_Status==='KEEP_CURRENT_SMALL_GAIN';
+  const label={OK:'Price change recommended',KEEP_CURRENT_SMALL_GAIN:'Keep current price',NO_FEASIBLE_PRICE:'No feasible price'}[r.Decision_Status];
+  const why=none?`No candidate price satisfies both the ${num(+$('#margin').value)}% margin floor and the competitor ceiling. The current price is kept as a fallback — review costs or loosen a rule.`
+    :keep?'The best price improves profit by less than the hysteresis threshold, so the price is left unchanged to avoid churn.'
+    :`Best feasible price within ±${num(+$('#maxch').value)}% of current: ${pct(r.Price_Change_pct)} change, ${pct(r.Price_vs_Competitor_pct)} vs competitor, expected demand ${num(r.Expected_Demand_Scenario,1)} units (forecast at current price ${num(r.Baseline_Demand_Forecast,1)}).`;
+  $('#sEmpty').hidden=true; const o=$('#sOut'); o.hidden=false;
+  o.innerHTML=`
+  <div class="card panel" style="display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:center">
+    <div><div style="font-weight:700;font-size:16px">${esc(d.store_id)} · ${esc(d.product_id)} <span class="chip">${esc(r.Category)}</span></div>
+    <div class="sub" style="margin:0">Decision for ${d.decision_date}</div></div>
+    <span class="badge b-${r.Decision_Status}">${label}</span></div>
+  <div class="kpis">
+    <div class="card kpi"><div class="l">Recommended price</div><div class="v">${money(r.Recommended_Price)}</div><div class="s ${cls(r.Price_Change_pct)}">${pct(r.Price_Change_pct)} from ${money(r.Current_Price)}</div></div>
+    <div class="card kpi"><div class="l">Expected profit / day</div><div class="v">${money(r.Scenario_Profit)}</div><div class="s ${cls(r.Profit_Change_pct)}">${pct(r.Profit_Change_pct)} vs ${money(r.Estimated_Current_Profit)}</div></div>
+    <div class="card kpi"><div class="l">Net margin</div><div class="v">${(r.Recommended_Net_Margin*100).toFixed(1)}%</div><div class="s">now ${(r.Current_Net_Margin*100).toFixed(1)}% · unit cost ${money(r.Unit_Cost)}</div></div>
+    <div class="card kpi"><div class="l">vs competitor</div><div class="v">${pct(r.Price_vs_Competitor_pct)}</div><div class="s">competitor ${money(r.Competitor_Price)}</div></div>
+    <div class="card kpi"><div class="l">Demand forecast</div><div class="v">${num(r.Baseline_Demand_Forecast,0)}</div><div class="s">units at current price · stock ${num(r.Inventory)}</div></div>
+  </div>
+  <div class="card panel"><h3>Why</h3><div class="sub" style="margin:0">${why}</div></div>
+  <div class="charts">
+    <div class="card panel"><h3>Profit at each candidate price</h3><div class="sub">Filled dots meet the margin and competitor rules; hollow dots don't.</div>${curveChart(d.curve,r)}
+      <div class="legend"><span><i style="background:var(--c1)"></i>feasible</span><span><i style="border:1.5px solid var(--c2)"></i>infeasible</span><span><i style="background:var(--c3)"></i>recommended</span></div></div>
+    <div class="card panel"><h3>Last 30 days</h3><div class="sub">Demand (left axis) against our price and the competitor's (right axis).</div>${histChart(d.history)}
+      <div class="legend"><span><i style="background:var(--c1)"></i>demand</span><span><i style="background:var(--c3)"></i>our price</span><span><i style="background:var(--c2)"></i>competitor</span></div></div>
+  </div>
+  <div class="notes"><b>Read before acting</b><ul>${d.assumptions.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></div>`;
+  $('#curveSvg').addEventListener('mousemove',e=>{const c=e.target.dataset.i;if(c==null)return hideTip();const p=d.curve[c];
+    showTip(e,`<b>${money(p.price)}</b> (${pct((p.multiplier-1)*100)})<br>demand ${num(p.demand,1)} · profit ${money(p.profit)}<br>margin ${(p.margin*100).toFixed(1)}% · ${p.feasible?'feasible':'infeasible'}`)});
+  $('#curveSvg').addEventListener('mouseleave',hideTip);
+  const hs=$('#histSvg'),hd=d.history;hs.addEventListener('mousemove',e=>{const b=hs.getBoundingClientRect(),vx=(e.clientX-b.left)/b.width*W;
+    const i=Math.max(0,Math.min(hd.date.length-1,Math.round((vx-M.l)/(W-M.l-M.r-34)*(hd.date.length-1))));
+    showTip(e,`<b>${hd.date[i]}</b><br>demand ${num(hd.demand[i])}<br>price ${money(hd.price[i])} · comp ${money(hd.competitor[i])}`)});
+  hs.addEventListener('mouseleave',hideTip);
+}
+
+/* ---------- catalog ---------- */
+let sortKey='Price_Change_pct',sortDir=-1,q='';
+const COLS=[['Store_ID','Store'],['Product_ID','Product'],['Category','Category'],['Current_Price','Current',money],['Competitor_Price','Competitor',money],['Recommended_Price','Recommended',money],
+ ['Price_Change_pct','Change',v=>`<span class="${cls(v)}">${pct(v)}</span>`],['Baseline_Demand_Forecast','Forecast',v=>num(v,1)],['Recommended_Net_Margin','Margin',v=>(v*100).toFixed(1)+'%'],
+ ['Scenario_Profit','Profit',money],['Decision_Status','Status',v=>`<span class="badge b-${v}">${v.replace(/_/g,' ').toLowerCase()}</span>`]];
+function renderBatch(){
+  const s=lastBatch.summary; $('#bEmpty').hidden=true; const o=$('#bOut'); o.hidden=false;
+  o.innerHTML=`<div class="kpis">
+   <div class="card kpi"><div class="l">Products priced</div><div class="v">${s.series_priced}</div><div class="s">${s.series_skipped} skipped (short history)</div></div>
+   <div class="card kpi"><div class="l">Prices changed</div><div class="v">${s.changed}</div><div class="s">avg move ${pct(s.avg_change_pct)}</div></div>
+   <div class="card kpi"><div class="l">Scenario profit / day</div><div class="v">${money(s.profit_scenario)}</div><div class="s ${cls(s.profit_change_pct)}">${pct(s.profit_change_pct)} vs ${money(s.profit_current)}</div></div>
+   <div class="card kpi"><div class="l">No feasible price</div><div class="v">${s.status_counts.NO_FEASIBLE_PRICE||0}</div><div class="s">current price kept</div></div></div>
+   <div class="card panel"><div class="toolbar"><input id="bq" placeholder="Filter store, product, category…" aria-label="Filter rows"><select id="bstat" style="max-width:200px" aria-label="Status filter"><option value="">All statuses</option><option>OK</option><option>KEEP_CURRENT_SMALL_GAIN</option><option>NO_FEASIBLE_PRICE</option></select><button class="ghost" id="csv">Download CSV</button></div>
+   <div class="tablewrap"><table><thead><tr>${COLS.map(c=>`<th data-k="${c[0]}">${c[1]}</th>`).join('')}</tr></thead><tbody id="tb"></tbody></table></div></div>
+   <div class="notes"><b>Read before acting</b><ul>${lastBatch.assumptions.map(a=>`<li>${esc(a)}</li>`).join('')}</ul></div>`;
+  $('#bq').oninput=e=>{q=e.target.value.toLowerCase();rows()};$('#bstat').onchange=rows;
+  $$('th[data-k]').forEach(th=>th.onclick=()=>{sortDir=sortKey===th.dataset.k?-sortDir:-1;sortKey=th.dataset.k;rows()});
+  $('#csv').onclick=downloadCsv; rows();
+}
+function filtered(){const st=$('#bstat')?.value;return lastBatch.rows.filter(r=>(!st||r.Decision_Status===st)&&(!q||[r.Store_ID,r.Product_ID,r.Category].join(' ').toLowerCase().includes(q)))
+  .sort((a,b)=>{const x=a[sortKey],y=b[sortKey];return (typeof x==='string'?x.localeCompare(y):x-y)*sortDir})}
+function rows(){$('#tb').innerHTML=filtered().map(r=>`<tr>${COLS.map(c=>`<td>${c[2]?c[2](r[c[0]]):esc(r[c[0]])}</td>`).join('')}</tr>`).join('')||'<tr><td colspan="11" class="empty">No rows match.</td></tr>'}
+function downloadCsv(){const k=['Store_ID','Product_ID','Category','Current_Price','Competitor_Price','Unit_Cost','Recommended_Price','Price_Change_pct','Baseline_Demand_Forecast','Recommended_Net_Margin','Estimated_Current_Profit','Scenario_Profit','Decision_Status'];
+  const csv=[k.join(','),...filtered().map(r=>k.map(c=>r[c]).join(','))].join('\n');const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`price_recommendations_${lastBatch.decision_date}.csv`;a.click()}
+
+init().catch(e=>{$('#hmeta').innerHTML=`<span class="chip demo">Backend error: ${esc(e.message)}</span>`});
+</script>
+</body>
+</html>
