@@ -95,7 +95,11 @@ def load_state():
 
 
 def ready():
-    load_state()
+    try:
+        load_state()
+    except Exception:
+        import traceback
+        raise HTTPException(500, detail=traceback.format_exc()[-1500:])
 
 
 app = FastAPI(title="Adaptive Pricing Engine", version="1.0.0", dependencies=[Depends(ready)],
